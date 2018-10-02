@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Eyeliner</string>
+    <string name="save_success">save success</string>
 </resources>
