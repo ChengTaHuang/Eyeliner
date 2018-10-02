@@ -25,6 +25,10 @@ class EyeEditActivity : AppCompatActivity() {
 
     private lateinit var uri: Uri
 
+    private enum class Menu {
+        EDIT, PREVIEW
+    }
+
     companion object {
         val EXTRA_URI = "uri"
 
@@ -54,41 +58,70 @@ class EyeEditActivity : AppCompatActivity() {
                 task.execute()
             }
         })
+        /*
+            編輯畫板區塊
+         */
+        menuEdit.setOnMenuButtonClickListener {
+            if (!menuEdit.isOpened) {
+                palette.changeSate(Palette.State.EDIT)
+                changeMenu(Menu.EDIT)
+            }
+            menuEdit.toggle(true)
+        }
 
-        menuSave.setOnClickListener {
+        btnInsert.setOnClickListener {
+            palette.addBezier()
+            palette.changeSate(Palette.State.EDIT)
+            menuEdit.close(true)
+        }
+
+        btnEdit.setOnClickListener {
+            palette.changeSate(Palette.State.EDIT)
+            menuEdit.close(true)
+        }
+
+        btnDelete.setOnClickListener {
+            palette.changeSate(Palette.State.DELETE)
+            menuEdit.close(true)
+        }
+
+        /*
+            儲存畫板區塊
+         */
+        menuPreview.setOnMenuButtonClickListener {
+            if (!menuPreview.isOpened) {
+                palette.changeSate(Palette.State.SAVE)
+                changeMenu(Menu.PREVIEW)
+            }
+            menuPreview.toggle(true)
+        }
+
+        btnSave.setOnClickListener {
             palette.changeSate(Palette.State.SAVE)
             palette.isDrawingCacheEnabled = true
             val bitmapCache = palette.drawingCache
             saveTempBitmap(bitmapCache)
-            floatingActionMenu.close(true)
-            floatingActionMenu.menuIconView.setImageResource(R.drawable.ic_save)
-        }
-
-        menuPreview.setOnClickListener {
-            palette.changeSate(Palette.State.SAVE)
-            floatingActionMenu.close(true)
-            floatingActionMenu.menuIconView.setImageResource(R.drawable.ic_file)
-        }
-
-        menuInsert.setOnClickListener {
-            palette.addBezier()
-            palette.changeSate(Palette.State.EDIT)
-            floatingActionMenu.close(true)
-            floatingActionMenu.menuIconView.setImageResource(R.drawable.ic_edit)
-        }
-
-        menuEdit.setOnClickListener {
-            palette.changeSate(Palette.State.EDIT)
-            floatingActionMenu.close(true)
-            floatingActionMenu.menuIconView.setImageResource(R.drawable.ic_edit)
-        }
-
-        menuDelete.setOnClickListener {
-            palette.changeSate(Palette.State.DELETE)
-            floatingActionMenu.close(true)
-            floatingActionMenu.menuIconView.setImageResource(R.drawable.ic_garbage)
+            menuPreview.close(true)
         }
     }
+
+    private fun changeMenu(type: Menu) {
+        when (type) {
+            Menu.EDIT -> {
+                menuEdit.setMenuButtonColorNormalResId(R.color.colorDelete)
+                menuPreview.setMenuButtonColorNormalResId(R.color.colorPoint)
+                menuPreview.close(true)
+            }
+
+            Menu.PREVIEW -> {
+                menuPreview.setMenuButtonColorNormalResId(R.color.colorDelete)
+                menuEdit.setMenuButtonColorNormalResId(R.color.colorPoint)
+                menuEdit.close(true)
+            }
+
+        }
+    }
+
 
     @SuppressLint("StaticFieldLeak")
     private class ConvertBitmapTask(private val context: Context,

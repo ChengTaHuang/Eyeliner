@@ -15,8 +15,9 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
+
     <com.github.clans.fab.FloatingActionMenu
-        android:id="@+id/floatingActionMenu"
+        android:id="@+id/menuEdit"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginBottom="8dp"
@@ -24,27 +25,11 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:menu_colorNormal="@color/colorPoint"
-        app:menu_icon="@drawable/ic_file"
-        app:menu_fab_size="mini">
+        app:menu_fab_size="mini"
+        app:menu_icon="@drawable/ic_edit">
 
         <com.github.clans.fab.FloatingActionButton
-            android:id="@+id/menuSave"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:src="@drawable/ic_save"
-            app:fab_colorNormal="@color/colorPoint"
-            app:fab_size="mini" />
-
-        <com.github.clans.fab.FloatingActionButton
-            android:id="@+id/menuPreview"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:src="@drawable/ic_file"
-            app:fab_colorNormal="@color/colorPoint"
-            app:fab_size="mini" />
-
-        <com.github.clans.fab.FloatingActionButton
-            android:id="@+id/menuInsert"
+            android:id="@+id/btnInsert"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:src="@drawable/ic_bezier"
@@ -52,7 +37,7 @@
             app:fab_size="mini" />
 
         <com.github.clans.fab.FloatingActionButton
-            android:id="@+id/menuEdit"
+            android:id="@+id/btnEdit"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:src="@drawable/ic_edit"
@@ -60,7 +45,7 @@
             app:fab_size="mini" />
 
         <com.github.clans.fab.FloatingActionButton
-            android:id="@+id/menuDelete"
+            android:id="@+id/btnDelete"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:src="@drawable/ic_garbage"
@@ -70,5 +55,26 @@
 
     </com.github.clans.fab.FloatingActionMenu>
 
+    <com.github.clans.fab.FloatingActionMenu
+        android:id="@+id/menuPreview"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"
+        android:layout_marginEnd="8dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/menuEdit"
+        app:menu_colorNormal="@color/colorPoint"
+        app:menu_fab_size="mini"
+        app:menu_icon="@drawable/ic_preview">
+
+        <com.github.clans.fab.FloatingActionButton
+            android:id="@+id/btnSave"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@drawable/ic_save"
+            app:fab_colorNormal="@color/colorPoint"
+            app:fab_size="mini" />
+
+    </com.github.clans.fab.FloatingActionMenu>
 
 </android.support.constraint.ConstraintLayout>
