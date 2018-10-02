@@ -130,7 +130,7 @@ class EyeEditActivity : AppCompatActivity() {
             title = "ColorPicker"
             setFlagView(CustomFlag(this@EyeEditActivity, R.layout.layout_flag))
             setPositiveButton("ok" , ColorEnvelopeListener{ envelope, _ ->
-                envelope.color
+                palette.pointColor = envelope.color
             })
             setNegativeButton("cancel"){ dialog , _->
                 dialog.dismiss()

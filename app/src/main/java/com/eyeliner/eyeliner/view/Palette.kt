@@ -30,16 +30,22 @@ class Palette : View {
     }
     private var state : State = State.EDIT
 
-    private lateinit var pointsPaint: Paint
-    private lateinit var pointsBiggerPaint : Paint
-    private lateinit var linePaint: Paint
-    private lateinit var deletePaint : Paint
+    private val pointsPaint: Paint = Paint()
+    private val pointsBiggerPaint : Paint = Paint()
+    private val linePaint: Paint = Paint()
+    private val deletePaint : Paint = Paint()
     private var pointsRadius = 5f
     private var pointsBiggerRadius = 15f
 
-    private @ColorRes var pointColor: Int = R.color.colorPoint
-    private @ColorRes var pointBiggerColor : Int = R.color.colorBiggerPoint
-    private @ColorRes var pointDeleteColor : Int = R.color.colorDelete
+    @ColorRes var pointColor: Int = R.color.colorPoint
+        set(value) {
+            pointsPaint.color = value
+            linePaint.color = value
+            invalidate()
+        }
+
+    @ColorRes var pointBiggerColor : Int = R.color.colorBiggerPoint
+    @ColorRes var pointDeleteColor : Int = R.color.colorDelete
 
     private val bezierPath = Path()
 
@@ -79,19 +85,19 @@ class Palette : View {
     }
 
     private fun initPaint() {
-        pointsPaint = Paint().apply {
+        with(pointsPaint){
             strokeWidth = 1f
             color = ContextCompat.getColor(context , pointColor)
             isAntiAlias = true
         }
 
-        pointsBiggerPaint = Paint().apply {
+        with(pointsBiggerPaint){
             strokeWidth = 1f
             color = ContextCompat.getColor(context , pointBiggerColor)
             isAntiAlias = true
         }
 
-        linePaint = Paint().apply {
+        with(linePaint){
             strokeWidth = 5f
             color = ContextCompat.getColor(context , pointColor)
             style = Paint.Style.STROKE
@@ -99,7 +105,7 @@ class Palette : View {
             pathEffect = DashPathEffect(floatArrayOf(10f, 5f), 0f)
         }
 
-        deletePaint = Paint().apply {
+        with(deletePaint){
             strokeWidth = 5f
             color = ContextCompat.getColor(context , pointDeleteColor)
             style = Paint.Style.STROKE
