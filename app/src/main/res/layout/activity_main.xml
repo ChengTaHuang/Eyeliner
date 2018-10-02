@@ -93,9 +93,28 @@
 
     </com.github.clans.fab.FloatingActionMenu>
 
+
     <SeekBar
-        android:id="@+id/progress"
-        style="@style/Widget.AppCompat.SeekBar.Discrete"
+        android:id="@+id/seekBarSpacing"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"
+        android:layout_marginStart="8dp"
+        android:max="10"
+        android:maxHeight="2dp"
+        android:minHeight="2dp"
+        android:padding="5dp"
+        android:progress="3"
+        android:progressDrawable="@drawable/seek_bar"
+        android:thumb="@drawable/ic_triple_horizontally_aligned_lines"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@+id/seekBarWidth"
+        app:layout_constraintEnd_toStartOf="@+id/menuPreview"
+        app:layout_constraintStart_toStartOf="parent"
+        tools:visibility="visible" />
+
+    <SeekBar
+        android:id="@+id/seekBarWidth"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginBottom="18dp"
@@ -103,13 +122,13 @@
         android:max="10"
         android:maxHeight="2dp"
         android:minHeight="2dp"
-        android:padding="10dp"
+        android:padding="5dp"
         android:progress="3"
         android:progressDrawable="@drawable/seek_bar"
-        android:thumb="@drawable/shape_circle"
+        android:thumb="@drawable/ic_seekbar_width"
         android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toStartOf="@+id/menuPreview"
-        app:layout_constraintStart_toStartOf="parent" />
-
+        app:layout_constraintStart_toStartOf="parent"
+        tools:visibility="visible" />
 </android.support.constraint.ConstraintLayout>

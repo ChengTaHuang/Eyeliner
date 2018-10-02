@@ -49,12 +49,17 @@ class Palette : View {
     @ColorRes var pointBiggerColor : Int = R.color.colorBiggerPoint
     @ColorRes var pointDeleteColor : Int = R.color.colorDelete
 
-
     var lineStrokeWidth : Float = 5f
         set(value) {
             linePaint.strokeWidth = value
             pointsRadius = if(value > defaultRadius) value else defaultRadius
             pointsBiggerRadius = if(value * 3 > defaultBiggerRadius) value * 3 else defaultBiggerRadius
+            invalidate()
+        }
+
+    var dashPath = 20f
+        set(value) {
+            linePaint.pathEffect = DashPathEffect(floatArrayOf(value, value/2), 0f)
             invalidate()
         }
 
@@ -113,7 +118,7 @@ class Palette : View {
             color = ContextCompat.getColor(context , pointColor)
             style = Paint.Style.STROKE
             isAntiAlias = true
-            pathEffect = DashPathEffect(floatArrayOf(10f, 5f), 0f)
+            pathEffect = DashPathEffect(floatArrayOf(dashPath, dashPath/2), 0f)
         }
 
         with(deletePaint){
@@ -332,6 +337,11 @@ class Palette : View {
 
                     is State.DELETE -> {
                         deleteTouchIndex = findTouchedDeletePoint(nowPoint)
+                        if(deleteTouchIndex != NONE_DELETE_INDEX) {
+                            deletePoints.removeAt(deleteTouchIndex)
+                            bezierList.removeAt(deleteTouchIndex)
+                            invalidate()
+                        }
                     }
                 }
 
@@ -416,7 +426,7 @@ class Palette : View {
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         onTouchEvent(ev)
-        gestureDetector.onTouchEvent(ev)
+        //gestureDetector.onTouchEvent(ev)
         return super.dispatchTouchEvent(ev)
     }
 }

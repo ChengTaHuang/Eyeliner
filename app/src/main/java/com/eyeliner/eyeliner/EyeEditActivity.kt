@@ -96,7 +96,7 @@ class EyeEditActivity : AppCompatActivity() {
         btnWidthLine.setOnClickListener {
             palette.changeSate(Palette.State.EDIT)
             menuEdit.close(true)
-            showProgress()
+            showSeekBar()
         }
 
         btnEdit.setOnClickListener {
@@ -132,9 +132,22 @@ class EyeEditActivity : AppCompatActivity() {
             hideAddendaUI()
         }
 
-        progress.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+        seekBarWidth.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 palette.lineStrokeWidth = progress.toFloat()
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {
+            }
+
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {
+            }
+
+        })
+
+        seekBarSpacing.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                palette.dashPath = (progress.toFloat() + 1) * 5
             }
 
             override fun onStartTrackingTouch(seekBar: SeekBar?) {
@@ -147,15 +160,17 @@ class EyeEditActivity : AppCompatActivity() {
     }
 
     private fun hideAddendaUI(){
-        hideProgress()
+        hideSeekBar()
     }
 
-    private fun showProgress(){
-        progress.visibility = View.VISIBLE
+    private fun showSeekBar(){
+        seekBarWidth.visibility = View.VISIBLE
+        seekBarSpacing.visibility = View.VISIBLE
     }
 
-    private fun hideProgress(){
-        progress.visibility = View.GONE
+    private fun hideSeekBar(){
+        seekBarWidth.visibility = View.GONE
+        seekBarSpacing.visibility = View.GONE
     }
 
     private fun generateColorPicker(){
