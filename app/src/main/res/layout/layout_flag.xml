@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="50dp"
+    android:layout_height="50dp"
+    android:background="@drawable/flag_bg"
+    android:padding="1dp"
+    android:orientation="horizontal">
+
+    <com.skydoves.colorpickerview.AlphaTileView
+        android:id="@+id/flag_color_layout"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        android:orientation="vertical"/>
+</LinearLayout>

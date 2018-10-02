@@ -19,11 +19,25 @@ import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.*
+import android.content.DialogInterface
+import android.R.string.cancel
+import android.app.AlertDialog
+import com.skydoves.colorpickerview.ColorEnvelope
+import com.skydoves.colorpickerview.listeners.ColorEnvelopeListener
+import android.app.AlertDialog.THEME_DEVICE_DEFAULT_DARK
+import android.view.Menu
+import com.eyeliner.eyeliner.R.id.menuEdit
+import com.eyeliner.eyeliner.R.id.menuPreview
+import com.eyeliner.eyeliner.color.picker.CustomFlag
+import com.skydoves.colorpickerview.ColorPickerDialog
+
+
 
 
 class EyeEditActivity : AppCompatActivity() {
 
     private lateinit var uri: Uri
+    private lateinit var colorPickerDialog : AlertDialog
 
     private enum class Menu {
         EDIT, PREVIEW
@@ -48,6 +62,7 @@ class EyeEditActivity : AppCompatActivity() {
     }
 
     private fun initViews() {
+        generateColorPicker()
 
         palette.viewTreeObserver.addOnGlobalLayoutListener(object : OnGlobalLayoutListener {
             override fun onGlobalLayout() {
@@ -73,6 +88,10 @@ class EyeEditActivity : AppCompatActivity() {
             palette.addBezier()
             palette.changeSate(Palette.State.EDIT)
             menuEdit.close(true)
+        }
+
+        btnColorPicker.setOnClickListener {
+            showColorPicker()
         }
 
         btnEdit.setOnClickListener {
@@ -103,6 +122,26 @@ class EyeEditActivity : AppCompatActivity() {
             saveTempBitmap(bitmapCache)
             menuPreview.close(true)
         }
+    }
+
+    private fun generateColorPicker(){
+        val colorPickerBuilder = ColorPickerDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_LIGHT)
+        with(colorPickerBuilder){
+            title = "ColorPicker"
+            setFlagView(CustomFlag(this@EyeEditActivity, R.layout.layout_flag))
+            setPositiveButton("ok" , ColorEnvelopeListener{ envelope, _ ->
+                envelope.color
+            })
+            setNegativeButton("cancel"){ dialog , _->
+                dialog.dismiss()
+            }
+        }
+
+        colorPickerDialog = colorPickerBuilder.create()
+    }
+
+    private fun showColorPicker(){
+        colorPickerDialog.show()
     }
 
     private fun changeMenu(type: Menu) {
