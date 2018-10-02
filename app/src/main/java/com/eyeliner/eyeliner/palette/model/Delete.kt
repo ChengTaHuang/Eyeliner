@@ -1,4 +1,4 @@
-package com.eyeliner.eyeliner.view
+package com.eyeliner.eyeliner.palette.model
 
 /**
  * Created by zeno on 2018/9/28.

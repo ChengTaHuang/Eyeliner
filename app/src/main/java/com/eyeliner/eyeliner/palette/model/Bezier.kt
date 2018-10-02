@@ -1,6 +1,4 @@
-package com.eyeliner.eyeliner
-
-import com.eyeliner.eyeliner.view.Anchor
+package com.eyeliner.eyeliner.palette.model
 
 /**
  * Created by zeno on 2018/9/28.

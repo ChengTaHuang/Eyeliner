@@ -6,7 +6,7 @@
     android:layout_height="match_parent"
     tools:context="com.eyeliner.eyeliner.EyeEditActivity">
 
-    <com.eyeliner.eyeliner.view.Palette
+    <com.eyeliner.eyeliner.palette.Palette
         android:id="@+id/palette"
         android:layout_width="0dp"
         android:layout_height="0dp"

@@ -1,4 +1,4 @@
-package com.eyeliner.eyeliner.view
+package com.eyeliner.eyeliner.palette
 
 import android.content.Context
 import android.graphics.*
@@ -7,15 +7,15 @@ import android.support.v4.content.ContextCompat
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
-import com.eyeliner.eyeliner.Bezier
 import com.eyeliner.eyeliner.R
 import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.view.GestureDetector
 import android.graphics.DashPathEffect
-
-
+import com.eyeliner.eyeliner.palette.model.Anchor
+import com.eyeliner.eyeliner.palette.model.Bezier
+import com.eyeliner.eyeliner.palette.model.Delete
 
 
 /**
@@ -165,12 +165,12 @@ class Palette : View {
         return bitmap
     }
 
-    private fun createBezier() : Bezier{
+    private fun createBezier() : Bezier {
         val anchor = Anchor(PointF(100f, 100f), false)
         val anchor4 = Anchor(PointF(200f, 100f), false)
         val anchor2 = Anchor(PointF(120f, 200f), false)
         val anchor3 = Anchor(PointF(180f, 200f), false)
-        return Bezier(anchor , anchor2 , anchor3 , anchor4)
+        return Bezier(anchor, anchor2, anchor3, anchor4)
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -232,7 +232,7 @@ class Palette : View {
             val left = Math.max(bezier.start.point.x , Math.max(bezier.mid1.point.x , Math.max(bezier.mid2.point.x , bezier.end.point.x)))
             val right = delete.width + left
             val bottom = delete.height + top
-            val deletePoint = Delete(left , top , right , bottom)
+            val deletePoint = Delete(left, top, right, bottom)
             deletePoints.add(deletePoint)
         }
     }

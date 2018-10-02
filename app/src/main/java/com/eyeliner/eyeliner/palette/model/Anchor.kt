@@ -1,4 +1,4 @@
-package com.eyeliner.eyeliner.view
+package com.eyeliner.eyeliner.palette.model
 
 import android.graphics.PointF
 

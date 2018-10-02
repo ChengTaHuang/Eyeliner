@@ -13,21 +13,14 @@ import android.support.v7.app.AppCompatActivity
 import android.view.ViewTreeObserver.OnGlobalLayoutListener
 import android.widget.Toast
 import com.bumptech.glide.Glide
-import com.eyeliner.eyeliner.view.Palette
+import com.eyeliner.eyeliner.palette.Palette
 import kotlinx.android.synthetic.main.activity_main.*
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.*
-import android.content.DialogInterface
-import android.R.string.cancel
 import android.app.AlertDialog
-import com.skydoves.colorpickerview.ColorEnvelope
 import com.skydoves.colorpickerview.listeners.ColorEnvelopeListener
-import android.app.AlertDialog.THEME_DEVICE_DEFAULT_DARK
-import android.view.Menu
-import com.eyeliner.eyeliner.R.id.menuEdit
-import com.eyeliner.eyeliner.R.id.menuPreview
 import com.eyeliner.eyeliner.color.picker.CustomFlag
 import com.skydoves.colorpickerview.ColorPickerDialog
 
