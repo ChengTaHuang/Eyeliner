@@ -20,6 +20,8 @@ import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.*
 import android.app.AlertDialog
+import android.view.View
+import android.widget.SeekBar
 import com.skydoves.colorpickerview.listeners.ColorEnvelopeListener
 import com.eyeliner.eyeliner.color.picker.CustomFlag
 import com.skydoves.colorpickerview.ColorPickerDialog
@@ -81,20 +83,32 @@ class EyeEditActivity : AppCompatActivity() {
             palette.addBezier()
             palette.changeSate(Palette.State.EDIT)
             menuEdit.close(true)
+            hideAddendaUI()
         }
 
         btnColorPicker.setOnClickListener {
+            palette.changeSate(Palette.State.EDIT)
+            menuEdit.close(true)
             showColorPicker()
+            hideAddendaUI()
+        }
+
+        btnWidthLine.setOnClickListener {
+            palette.changeSate(Palette.State.EDIT)
+            menuEdit.close(true)
+            showProgress()
         }
 
         btnEdit.setOnClickListener {
             palette.changeSate(Palette.State.EDIT)
             menuEdit.close(true)
+            hideAddendaUI()
         }
 
         btnDelete.setOnClickListener {
             palette.changeSate(Palette.State.DELETE)
             menuEdit.close(true)
+            hideAddendaUI()
         }
 
         /*
@@ -104,6 +118,7 @@ class EyeEditActivity : AppCompatActivity() {
             if (!menuPreview.isOpened) {
                 palette.changeSate(Palette.State.SAVE)
                 changeMenu(Menu.PREVIEW)
+                hideAddendaUI()
             }
             menuPreview.toggle(true)
         }
@@ -114,13 +129,38 @@ class EyeEditActivity : AppCompatActivity() {
             val bitmapCache = palette.drawingCache
             saveTempBitmap(bitmapCache)
             menuPreview.close(true)
+            hideAddendaUI()
         }
+
+        progress.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                palette.lineStrokeWidth = progress.toFloat()
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {
+            }
+
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {
+            }
+
+        })
+    }
+
+    private fun hideAddendaUI(){
+        hideProgress()
+    }
+
+    private fun showProgress(){
+        progress.visibility = View.VISIBLE
+    }
+
+    private fun hideProgress(){
+        progress.visibility = View.GONE
     }
 
     private fun generateColorPicker(){
         val colorPickerBuilder = ColorPickerDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_LIGHT)
         with(colorPickerBuilder){
-            title = "ColorPicker"
             setFlagView(CustomFlag(this@EyeEditActivity, R.layout.layout_flag))
             setPositiveButton("ok" , ColorEnvelopeListener{ envelope, _ ->
                 palette.pointColor = envelope.color
@@ -153,7 +193,6 @@ class EyeEditActivity : AppCompatActivity() {
 
         }
     }
-
 
     @SuppressLint("StaticFieldLeak")
     private class ConvertBitmapTask(private val context: Context,
@@ -197,7 +236,7 @@ class EyeEditActivity : AppCompatActivity() {
         myDir.mkdirs()
 
         val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss").format(Date())
-        val fname = "Shutta_$timeStamp.jpg"
+        val fname = "Eyeliner_$timeStamp.jpg"
 
         val file = File(myDir, fname)
         if (file.exists()) file.delete()

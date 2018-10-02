@@ -45,6 +45,14 @@
             app:fab_size="mini" />
 
         <com.github.clans.fab.FloatingActionButton
+            android:id="@+id/btnWidthLine"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@drawable/ic_width"
+            app:fab_colorNormal="@color/colorPoint"
+            app:fab_size="mini" />
+
+        <com.github.clans.fab.FloatingActionButton
             android:id="@+id/btnEdit"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -84,5 +92,24 @@
             app:fab_size="mini" />
 
     </com.github.clans.fab.FloatingActionMenu>
+
+    <SeekBar
+        android:id="@+id/progress"
+        style="@style/Widget.AppCompat.SeekBar.Discrete"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="18dp"
+        android:layout_marginStart="8dp"
+        android:max="10"
+        android:maxHeight="2dp"
+        android:minHeight="2dp"
+        android:padding="10dp"
+        android:progress="3"
+        android:progressDrawable="@drawable/seek_bar"
+        android:thumb="@drawable/shape_circle"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/menuPreview"
+        app:layout_constraintStart_toStartOf="parent" />
 
 </android.support.constraint.ConstraintLayout>

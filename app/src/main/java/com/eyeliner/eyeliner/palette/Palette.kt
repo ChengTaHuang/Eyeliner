@@ -34,8 +34,10 @@ class Palette : View {
     private val pointsBiggerPaint : Paint = Paint()
     private val linePaint: Paint = Paint()
     private val deletePaint : Paint = Paint()
-    private var pointsRadius = 5f
-    private var pointsBiggerRadius = 15f
+    private val defaultRadius = 5f
+    private val defaultBiggerRadius = 15f
+    private var pointsRadius = defaultRadius
+    private var pointsBiggerRadius = defaultBiggerRadius
 
     @ColorRes var pointColor: Int = R.color.colorPoint
         set(value) {
@@ -46,6 +48,15 @@ class Palette : View {
 
     @ColorRes var pointBiggerColor : Int = R.color.colorBiggerPoint
     @ColorRes var pointDeleteColor : Int = R.color.colorDelete
+
+
+    var lineStrokeWidth : Float = 5f
+        set(value) {
+            linePaint.strokeWidth = value
+            pointsRadius = if(value > defaultRadius) value else defaultRadius
+            pointsBiggerRadius = if(value * 3 > defaultBiggerRadius) value * 3 else defaultBiggerRadius
+            invalidate()
+        }
 
     private val bezierPath = Path()
 
@@ -106,7 +117,7 @@ class Palette : View {
         }
 
         with(deletePaint){
-            strokeWidth = 5f
+            strokeWidth = lineStrokeWidth
             color = ContextCompat.getColor(context , pointDeleteColor)
             style = Paint.Style.STROKE
             isAntiAlias = true
