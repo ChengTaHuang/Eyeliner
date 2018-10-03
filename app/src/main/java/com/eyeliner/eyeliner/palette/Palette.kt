@@ -14,8 +14,10 @@ import android.graphics.drawable.Drawable
 import android.view.GestureDetector
 import android.graphics.DashPathEffect
 import android.support.annotation.ColorInt
+import android.util.Log
 import com.alexvasilkov.gestures.GestureController
 import com.alexvasilkov.gestures.Settings
+import com.alexvasilkov.gestures.State
 import com.alexvasilkov.gestures.views.interfaces.GestureView
 import com.eyeliner.eyeliner.palette.model.Anchor
 import com.eyeliner.eyeliner.palette.model.Bezier
@@ -29,6 +31,13 @@ class Palette : View , GestureView {
     private val controller = GestureController(this)
     override fun getController() = controller
     private var _matrix = Matrix()
+    private var firstTouch = false
+    private val initState by lazy {
+        val state = com.alexvasilkov.gestures.State()
+        //{x=0.0,y=0.0,zoom=1.0,rotation=0.0}
+        state.set(0.0f , 0.0f , 1.0f , 0.0f)
+        state
+    }
 
     sealed class State {
         object EDIT : State()
@@ -180,7 +189,9 @@ class Palette : View , GestureView {
             }
 
             override fun onStateChanged(state: com.alexvasilkov.gestures.State?) {
-                applyState(state)
+                //if(firstTouch)
+                    applyState(state)
+                //firstTouch = true
             }
         })
     }
@@ -196,8 +207,13 @@ class Palette : View , GestureView {
 
     private fun applyState(state: com.alexvasilkov.gestures.State?) {
         if (state != null) {
-            state[_matrix]
-            invalidate()
+            if(!firstTouch && (initState == state) ){
+                firstTouch = true
+            }
+            if(firstTouch) {
+                state[_matrix]
+                invalidate()
+            }
         }
     }
 
