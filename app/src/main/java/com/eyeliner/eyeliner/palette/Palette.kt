@@ -2,17 +2,18 @@ package com.eyeliner.eyeliner.palette
 
 import android.content.Context
 import android.graphics.*
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
 import android.support.annotation.ColorRes
 import android.support.v4.content.ContextCompat
 import android.util.AttributeSet
+import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
+import com.alexvasilkov.gestures.GestureController
+import com.alexvasilkov.gestures.Settings
+import com.alexvasilkov.gestures.views.interfaces.GestureView
 import com.eyeliner.eyeliner.R
-import android.graphics.Bitmap
-import android.graphics.drawable.BitmapDrawable
-import android.graphics.drawable.Drawable
-import android.view.GestureDetector
-import android.graphics.DashPathEffect
 import com.eyeliner.eyeliner.palette.model.Anchor
 import com.eyeliner.eyeliner.palette.model.Bezier
 import com.eyeliner.eyeliner.palette.model.Delete
@@ -21,7 +22,10 @@ import com.eyeliner.eyeliner.palette.model.Delete
 /**
  * Created by zeno on 2018/9/28.
  */
-class Palette : View {
+class Palette : View , GestureView {
+    private val controller = GestureController(this)
+    override fun getController() = controller
+    private var _matrix = Matrix()
 
     sealed class State {
         object EDIT : State()
@@ -79,6 +83,7 @@ class Palette : View {
 
     fun setBackgroundBitmap(bitmap: Bitmap?){
         this.backgroundBitmap = bitmap
+        settingController()
         invalidate()
     }
 
@@ -159,6 +164,43 @@ class Palette : View {
         invalidate()
     }
 
+    private fun settingController(){
+        controller.settings
+                .setRotationEnabled(false)
+                .setDoubleTapEnabled(false)
+                .setFitMethod(Settings.Fit.INSIDE)
+                .setBoundsType(Settings.Bounds.INSIDE)
+                .setMinZoom(1f)
+                .setImage(backgroundBitmap!!.width, backgroundBitmap!!.height)
+
+        controller.addOnStateChangeListener(object : GestureController.OnStateChangeListener{
+            override fun onStateReset(oldState: com.alexvasilkov.gestures.State?, newState: com.alexvasilkov.gestures.State?) {
+                applyState(newState)
+            }
+
+            override fun onStateChanged(state: com.alexvasilkov.gestures.State?) {
+                applyState(state)
+            }
+        })
+
+    }
+
+    override fun onSizeChanged(width: Int, height: Int, oldWidth: Int, oldHeight: Int) {
+        super.onSizeChanged(width, height, oldWidth, oldHeight)
+
+        controller.settings.setViewport(
+                width - paddingLeft - paddingRight,
+                height - paddingTop - paddingBottom)
+        controller.updateState()
+    }
+
+    private fun applyState(state: com.alexvasilkov.gestures.State?) {
+        if (state != null) {
+            state[_matrix]
+            invalidate()
+        }
+    }
+
     private fun createDelete(){
         val d = ContextCompat.getDrawable(context , R.drawable.ic_delete)!!
         delete = drawableToBitmap(d)
@@ -182,16 +224,26 @@ class Palette : View {
     }
 
     private fun createBezier() : Bezier {
-        val anchor = Anchor(PointF(100f, 100f), false)
-        val anchor4 = Anchor(PointF(200f, 100f), false)
-        val anchor2 = Anchor(PointF(120f, 200f), false)
-        val anchor3 = Anchor(PointF(180f, 200f), false)
+        val anchor = Anchor(invertPoint(PointF(100f ,100f)), false)
+        val anchor4 = Anchor(invertPoint(PointF(200f, 100f)), false)
+        val anchor2 = Anchor(invertPoint(PointF(120f, 200f)), false)
+        val anchor3 = Anchor(invertPoint(PointF(180f, 200f)), false)
         return Bezier(anchor, anchor2, anchor3, anchor4)
+    }
+
+    private fun invertPoint(point : PointF) : PointF {
+        val touchPoint = floatArrayOf(point.x , point.y)
+        val newMatrix = Matrix()
+        _matrix.invert(newMatrix)
+        newMatrix.mapPoints(touchPoint)
+        return PointF(touchPoint[0] , touchPoint[1])
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
+        canvas.save()
+        canvas.concat(_matrix)
         backgroundBitmap?.run {
             canvas.drawBitmap(backgroundBitmap , 0f ,0f , pointsPaint)
         }
@@ -239,6 +291,7 @@ class Palette : View {
             }
         }
 
+        canvas.restore()
     }
 
     private fun checkDelete(){
@@ -254,6 +307,9 @@ class Palette : View {
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        var isMyControl = false
+
+        val nowPoint = invertPoint(PointF(event.getX(0) , event.getY(0)))
 
         when (event.action) {
             MotionEvent.ACTION_UP -> {
@@ -275,7 +331,6 @@ class Palette : View {
             }
 
             MotionEvent.ACTION_DOWN -> {
-                val nowPoint = PointF(event.getX(0), event.getY(0))
 
                 when(state){
                     is State.EDIT ->{
@@ -311,23 +366,23 @@ class Palette : View {
                                 }
 
                                 if (bezier.start.draw) {
-                                    bezier.start.point.x = event.getX(0)
-                                    bezier.start.point.y = event.getY(0)
+                                    bezier.start.point.x = nowPoint.x
+                                    bezier.start.point.y = nowPoint.y
                                 }
 
                                 if (bezier.mid1.draw) {
-                                    bezier.mid1.point.x = event.getX(0)
-                                    bezier.mid1.point.y = event.getY(0)
+                                    bezier.mid1.point.x = nowPoint.x
+                                    bezier.mid1.point.y = nowPoint.y
                                 }
 
                                 if (bezier.mid2.draw) {
-                                    bezier.mid2.point.x = event.getX(0)
-                                    bezier.mid2.point.y = event.getY(0)
+                                    bezier.mid2.point.x = nowPoint.x
+                                    bezier.mid2.point.y = nowPoint.y
                                 }
 
                                 if (bezier.end.draw) {
-                                    bezier.end.point.x = event.getX(0)
-                                    bezier.end.point.y = event.getY(0)
+                                    bezier.end.point.x = nowPoint.x
+                                    bezier.end.point.y = nowPoint.y
                                 }
 
                                 if (min < 50) return@breaking
@@ -340,6 +395,7 @@ class Palette : View {
                         if(deleteTouchIndex != NONE_DELETE_INDEX) {
                             deletePoints.removeAt(deleteTouchIndex)
                             bezierList.removeAt(deleteTouchIndex)
+                            isMyControl = true
                             invalidate()
                         }
                     }
@@ -353,37 +409,43 @@ class Palette : View {
                     run breaking@ {
                         bezierList.forEach { bezier ->
                             if (bezier.start.draw) {
-                                bezier.start.point.x = event.getX(0)
-                                bezier.start.point.y = event.getY(0)
+                                bezier.start.point.x = nowPoint.x
+                                bezier.start.point.y = nowPoint.y
                             }
 
                             if (bezier.mid1.draw) {
-                                bezier.mid1.point.x = event.getX(0)
-                                bezier.mid1.point.y = event.getY(0)
+                                bezier.mid1.point.x = nowPoint.x
+                                bezier.mid1.point.y = nowPoint.y
                             }
 
                             if (bezier.mid2.draw) {
-                                bezier.mid2.point.x = event.getX(0)
-                                bezier.mid2.point.y = event.getY(0)
+                                bezier.mid2.point.x = nowPoint.x
+                                bezier.mid2.point.y = nowPoint.y
                             }
 
                             if (bezier.end.draw) {
-                                bezier.end.point.x = event.getX(0)
-                                bezier.end.point.y = event.getY(0)
+                                bezier.end.point.x = nowPoint.x
+                                bezier.end.point.y = nowPoint.y
                             }
 
-                            if (bezier.start.draw || bezier.mid1.draw || bezier.mid2.draw || bezier.end.draw) return@breaking
+                            if (bezier.start.draw || bezier.mid1.draw || bezier.mid2.draw || bezier.end.draw){
+                                isMyControl = true
+                                return@breaking
+                            }
                         }
                     }
                 }
             }
         }
+        if(!isMyControl)
+            controller.onTouch(this@Palette, event)
 
         invalidate()
         return true
     }
 
     private fun getDistance(last: PointF, now: PointF): Double {
+
         return Math.sqrt(
                 Math.pow((last.x - now.x).toDouble(), 2.0) +
                         Math.pow((last.y - now.y).toDouble(), 2.0)
@@ -425,7 +487,7 @@ class Palette : View {
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        onTouchEvent(ev)
+        //onTouchEvent(ev)
         //gestureDetector.onTouchEvent(ev)
         return super.dispatchTouchEvent(ev)
     }

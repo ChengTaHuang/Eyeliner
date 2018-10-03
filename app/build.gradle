@@ -41,4 +41,7 @@ dependencies {
 
     // color picker
     implementation "com.github.skydoves:colorpickerview:2.0.1"
+
+    // scale view
+    implementation 'com.alexvasilkov:gesture-views:2.5.2'
 }
