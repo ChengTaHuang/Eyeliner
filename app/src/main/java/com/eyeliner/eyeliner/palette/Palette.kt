@@ -2,18 +2,21 @@ package com.eyeliner.eyeliner.palette
 
 import android.content.Context
 import android.graphics.*
-import android.graphics.drawable.BitmapDrawable
-import android.graphics.drawable.Drawable
 import android.support.annotation.ColorRes
 import android.support.v4.content.ContextCompat
 import android.util.AttributeSet
-import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
+import com.eyeliner.eyeliner.R
+import android.graphics.Bitmap
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
+import android.view.GestureDetector
+import android.graphics.DashPathEffect
+import android.util.Log
 import com.alexvasilkov.gestures.GestureController
 import com.alexvasilkov.gestures.Settings
 import com.alexvasilkov.gestures.views.interfaces.GestureView
-import com.eyeliner.eyeliner.R
 import com.eyeliner.eyeliner.palette.model.Anchor
 import com.eyeliner.eyeliner.palette.model.Bezier
 import com.eyeliner.eyeliner.palette.model.Delete
@@ -162,6 +165,10 @@ class Palette : View , GestureView {
         }
 
         invalidate()
+    }
+
+    fun resetScale(){
+        _matrix = Matrix()
     }
 
     private fun settingController(){

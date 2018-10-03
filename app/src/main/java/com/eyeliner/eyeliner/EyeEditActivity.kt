@@ -117,6 +117,7 @@ class EyeEditActivity : AppCompatActivity() {
         menuPreview.setOnMenuButtonClickListener {
             if (!menuPreview.isOpened) {
                 palette.changeSate(Palette.State.SAVE)
+                palette.resetScale()
                 changeMenu(Menu.PREVIEW)
                 hideAddendaUI()
             }
@@ -125,6 +126,7 @@ class EyeEditActivity : AppCompatActivity() {
 
         btnSave.setOnClickListener {
             palette.changeSate(Palette.State.SAVE)
+            palette.resetScale()
             palette.isDrawingCacheEnabled = true
             val bitmapCache = palette.drawingCache
             saveTempBitmap(bitmapCache)
