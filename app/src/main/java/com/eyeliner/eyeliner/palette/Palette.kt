@@ -13,13 +13,13 @@ import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.view.GestureDetector
 import android.graphics.DashPathEffect
-import android.util.Log
+import android.support.annotation.ColorInt
 import com.alexvasilkov.gestures.GestureController
 import com.alexvasilkov.gestures.Settings
 import com.alexvasilkov.gestures.views.interfaces.GestureView
 import com.eyeliner.eyeliner.palette.model.Anchor
 import com.eyeliner.eyeliner.palette.model.Bezier
-import com.eyeliner.eyeliner.palette.model.Delete
+import com.eyeliner.eyeliner.palette.model.BezierArea
 
 
 /**
@@ -34,13 +34,14 @@ class Palette : View , GestureView {
         object EDIT : State()
         object DELETE : State()
         object SAVE : State()
+        object COLOR : State()
     }
     private var state : State = State.EDIT
 
+    private val bitmapPaint : Paint = Paint()
     private val pointsPaint: Paint = Paint()
     private val pointsBiggerPaint : Paint = Paint()
     private val linePaint: Paint = Paint()
-    private val deletePaint : Paint = Paint()
     private val defaultRadius = 5f
     private val defaultBiggerRadius = 15f
     private var pointsRadius = defaultRadius
@@ -48,13 +49,14 @@ class Palette : View , GestureView {
 
     @ColorRes var pointColor: Int = R.color.colorPoint
         set(value) {
-            pointsPaint.color = value
-            linePaint.color = value
+            pointsPaint.color = ContextCompat.getColor(context , value)
+            linePaint.color = ContextCompat.getColor(context , value)
             invalidate()
         }
 
     @ColorRes var pointBiggerColor : Int = R.color.colorBiggerPoint
-    @ColorRes var pointDeleteColor : Int = R.color.colorDelete
+
+    @ColorInt var currentPaintColor : Int ? = null
 
     var lineStrokeWidth : Float = 5f
         set(value) {
@@ -75,12 +77,12 @@ class Palette : View , GestureView {
     private val bezierList = mutableListOf<Bezier>()
 
     private lateinit var delete : Bitmap
-    private lateinit var deleteRed : Bitmap
+    private lateinit var colorPalette: Bitmap
 
-    private var deletePoints = mutableListOf<Delete>()
+    private var bezierAreaList = mutableListOf<BezierArea>()
 
-    private val NONE_DELETE_INDEX = -1
-    private var deleteTouchIndex = NONE_DELETE_INDEX
+    private val NONE_TOUCH_AREA = -1
+    private var touchIndex = NONE_TOUCH_AREA
 
     private var backgroundBitmap : Bitmap? = null
 
@@ -94,18 +96,21 @@ class Palette : View , GestureView {
         this.setWillNotDraw(false)
         initPaint()
         createDelete()
+        createColorPalette()
     }
 
     constructor(context: Context, attrs: AttributeSet) : super(context, attrs) {
         this.setWillNotDraw(false)
         initPaint()
         createDelete()
+        createColorPalette()
     }
 
     constructor(context: Context, attrs: AttributeSet, defStyle: Int) : super(context, attrs, defStyle) {
         this.setWillNotDraw(false)
         initPaint()
         createDelete()
+        createColorPalette()
     }
 
     private fun initPaint() {
@@ -128,13 +133,6 @@ class Palette : View , GestureView {
             isAntiAlias = true
             pathEffect = DashPathEffect(floatArrayOf(dashPath, dashPath/2), 0f)
         }
-
-        with(deletePaint){
-            strokeWidth = lineStrokeWidth
-            color = ContextCompat.getColor(context , pointDeleteColor)
-            style = Paint.Style.STROKE
-            isAntiAlias = true
-        }
     }
 
     fun addBezier(){
@@ -151,16 +149,12 @@ class Palette : View , GestureView {
     fun changeSate(state: State){
         this.state = state
         when(state){
-            is State.EDIT -> {
-                deletePoints.clear()
+            is State.EDIT , State.SAVE-> {
+                bezierAreaList.clear()
             }
 
-            is State.DELETE ->{
+            is State.DELETE , State.COLOR ->{
                 checkDelete()
-            }
-
-            is State.SAVE ->{
-                deletePoints.clear()
             }
         }
 
@@ -189,7 +183,6 @@ class Palette : View , GestureView {
                 applyState(state)
             }
         })
-
     }
 
     override fun onSizeChanged(width: Int, height: Int, oldWidth: Int, oldHeight: Int) {
@@ -211,9 +204,11 @@ class Palette : View , GestureView {
     private fun createDelete(){
         val d = ContextCompat.getDrawable(context , R.drawable.ic_delete)!!
         delete = drawableToBitmap(d)
+    }
 
-        val dRed = ContextCompat.getDrawable(context , R.drawable.ic_delete_r)!!
-        deleteRed = drawableToBitmap(dRed)
+    private fun createColorPalette(){
+        val p = ContextCompat.getDrawable(context , R.drawable.ic_color_palette)!!
+        colorPalette = drawableToBitmap(p)
     }
 
     private fun drawableToBitmap(drawable: Drawable): Bitmap {
@@ -235,7 +230,7 @@ class Palette : View , GestureView {
         val anchor4 = Anchor(invertPoint(PointF(200f, 100f)), false)
         val anchor2 = Anchor(invertPoint(PointF(120f, 200f)), false)
         val anchor3 = Anchor(invertPoint(PointF(180f, 200f)), false)
-        return Bezier(anchor, anchor2, anchor3, anchor4)
+        return Bezier(anchor, anchor2, anchor3, anchor4 , ContextCompat.getColor(context , R.color.colorPoint))
     }
 
     private fun invertPoint(point : PointF) : PointF {
@@ -252,25 +247,8 @@ class Palette : View , GestureView {
         canvas.save()
         canvas.concat(_matrix)
         backgroundBitmap?.run {
-            canvas.drawBitmap(backgroundBitmap , 0f ,0f , pointsPaint)
+            canvas.drawBitmap(backgroundBitmap , 0f ,0f , bitmapPaint)
         }
-
-        when(state){
-            is State.EDIT ->{
-                bezierList.forEach { bezier ->
-                    canvas.drawCircle(bezier.start.point.x, bezier.start.point.y, pointsBiggerRadius, pointsBiggerPaint)
-                    canvas.drawCircle(bezier.mid1.point.x, bezier.mid1.point.y, pointsBiggerRadius, pointsBiggerPaint)
-                    canvas.drawCircle(bezier.mid2.point.x, bezier.mid2.point.y, pointsBiggerRadius, pointsBiggerPaint)
-                    canvas.drawCircle(bezier.end.point.x, bezier.end.point.y, pointsBiggerRadius, pointsBiggerPaint)
-
-                    canvas.drawCircle(bezier.start.point.x, bezier.start.point.y, pointsRadius, pointsPaint)
-                    canvas.drawCircle(bezier.mid1.point.x, bezier.mid1.point.y, pointsRadius, pointsPaint)
-                    canvas.drawCircle(bezier.mid2.point.x, bezier.mid2.point.y, pointsRadius, pointsPaint)
-                    canvas.drawCircle(bezier.end.point.x, bezier.end.point.y, pointsRadius, pointsPaint)
-                }
-            }
-        }
-
 
         bezierList.forEachIndexed { index, bezier ->
 
@@ -283,18 +261,39 @@ class Palette : View , GestureView {
                     bezier.end.point.x, bezier.end.point.y
             )
 
-            if(index == deleteTouchIndex){
-                canvas.drawPath(bezierPath, deletePaint)
-            }else{
-                canvas.drawPath(bezierPath, linePaint)
+            linePaint.color = bezier.color
+            canvas.drawPath(bezierPath, linePaint)
+
+        }
+
+        when(state){
+            is State.EDIT ->{
+                bezierList.forEach { bezier ->
+                    canvas.drawCircle(bezier.start.point.x, bezier.start.point.y, pointsBiggerRadius, pointsBiggerPaint)
+                    canvas.drawCircle(bezier.mid1.point.x, bezier.mid1.point.y, pointsBiggerRadius, pointsBiggerPaint)
+                    canvas.drawCircle(bezier.mid2.point.x, bezier.mid2.point.y, pointsBiggerRadius, pointsBiggerPaint)
+                    canvas.drawCircle(bezier.end.point.x, bezier.end.point.y, pointsBiggerRadius, pointsBiggerPaint)
+
+                    pointsPaint.color = bezier.color
+                    canvas.drawCircle(bezier.start.point.x, bezier.start.point.y, pointsRadius, pointsPaint)
+                    canvas.drawCircle(bezier.mid1.point.x, bezier.mid1.point.y, pointsRadius, pointsPaint)
+                    canvas.drawCircle(bezier.mid2.point.x, bezier.mid2.point.y, pointsRadius, pointsPaint)
+                    canvas.drawCircle(bezier.end.point.x, bezier.end.point.y, pointsRadius, pointsPaint)
+                }
             }
         }
 
-        deletePoints.forEachIndexed { index, point ->
-            if(index == deleteTouchIndex){
-                canvas.drawBitmap(deleteRed, point.left , point.top, pointsPaint)
-            }else{
-                canvas.drawBitmap(delete, point.left , point.top, pointsPaint)
+
+        bezierAreaList.forEachIndexed { index, point ->
+
+            when(state){
+                is State.DELETE ->{
+                    canvas.drawBitmap(delete, point.left , point.top, bitmapPaint)
+                }
+
+                is State.COLOR -> {
+                    canvas.drawBitmap(colorPalette, point.left , point.top, bitmapPaint)
+                }
             }
         }
 
@@ -302,14 +301,14 @@ class Palette : View , GestureView {
     }
 
     private fun checkDelete(){
-        deletePoints.clear()
+        bezierAreaList.clear()
         bezierList.forEach{ bezier ->
             val top = Math.min(bezier.start.point.y , Math.min(bezier.mid1.point.y , Math.min(bezier.mid2.point.y , bezier.end.point.y)))
             val left = Math.max(bezier.start.point.x , Math.max(bezier.mid1.point.x , Math.max(bezier.mid2.point.x , bezier.end.point.x)))
             val right = delete.width + left
             val bottom = delete.height + top
-            val deletePoint = Delete(left, top, right, bottom)
-            deletePoints.add(deletePoint)
+            val deletePoint = BezierArea(left, top, right, bottom)
+            bezierAreaList.add(deletePoint)
         }
     }
 
@@ -332,7 +331,7 @@ class Palette : View , GestureView {
                     }
 
                     is State.DELETE ->{
-                        deleteTouchIndex = NONE_DELETE_INDEX
+                        touchIndex = NONE_TOUCH_AREA
                     }
                 }
             }
@@ -398,17 +397,24 @@ class Palette : View , GestureView {
                     }
 
                     is State.DELETE -> {
-                        deleteTouchIndex = findTouchedDeletePoint(nowPoint)
-                        if(deleteTouchIndex != NONE_DELETE_INDEX) {
-                            deletePoints.removeAt(deleteTouchIndex)
-                            bezierList.removeAt(deleteTouchIndex)
+                        touchIndex = findTouchedBezierPoint(nowPoint)
+                        if(touchIndex != NONE_TOUCH_AREA) {
+                            bezierAreaList.removeAt(touchIndex)
+                            bezierList.removeAt(touchIndex)
+                            isMyControl = true
+                            invalidate()
+                        }
+                    }
+
+                    is State.COLOR -> {
+                        touchIndex = findTouchedBezierPoint(nowPoint)
+                        if(touchIndex != NONE_TOUCH_AREA && currentPaintColor != null) {
+                            bezierList[touchIndex].color = currentPaintColor!!
                             isMyControl = true
                             invalidate()
                         }
                     }
                 }
-
-
             }
 
             MotionEvent.ACTION_MOVE -> {
@@ -464,12 +470,12 @@ class Palette : View , GestureView {
             override fun onLongPress(event: MotionEvent) {
                 val nowPoint = PointF(event.getX(0), event.getY(0))
 
-                val index = findTouchedDeletePoint(nowPoint)
+                val index = findTouchedBezierPoint(nowPoint)
 
-                if(index != NONE_DELETE_INDEX) {
-                    deletePoints.removeAt(index)
+                if(index != NONE_TOUCH_AREA) {
+                    bezierAreaList.removeAt(index)
                     bezierList.removeAt(index)
-                    deleteTouchIndex = NONE_DELETE_INDEX
+                    touchIndex = NONE_TOUCH_AREA
                     invalidate()
                 }
 
@@ -477,10 +483,10 @@ class Palette : View , GestureView {
         })
     }
 
-    private fun findTouchedDeletePoint(nowPoint : PointF) : Int {
+    private fun findTouchedBezierPoint(nowPoint : PointF) : Int {
 
-        var index1 = NONE_DELETE_INDEX
-        deletePoints.forEachIndexed { index , deletePoint ->
+        var index1 = NONE_TOUCH_AREA
+        bezierAreaList.forEachIndexed { index, deletePoint ->
             val dis1 = getDistance(PointF(deletePoint.left , deletePoint.top), nowPoint)
             val dis2 = getDistance(PointF(deletePoint.left , deletePoint.down), nowPoint)
             val dis3 = getDistance(PointF(deletePoint.right , deletePoint.top), nowPoint)

@@ -87,7 +87,7 @@ class EyeEditActivity : AppCompatActivity() {
         }
 
         btnColorPicker.setOnClickListener {
-            palette.changeSate(Palette.State.EDIT)
+            palette.changeSate(Palette.State.COLOR)
             menuEdit.close(true)
             showColorPicker()
             hideAddendaUI()
@@ -180,7 +180,8 @@ class EyeEditActivity : AppCompatActivity() {
         with(colorPickerBuilder){
             setFlagView(CustomFlag(this@EyeEditActivity, R.layout.layout_flag))
             setPositiveButton("ok" , ColorEnvelopeListener{ envelope, _ ->
-                palette.pointColor = envelope.color
+                //palette.pointColor = envelope.color
+                palette.currentPaintColor = envelope.color
             })
             setNegativeButton("cancel"){ dialog , _->
                 dialog.dismiss()
