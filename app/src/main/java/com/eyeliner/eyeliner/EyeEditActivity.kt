@@ -86,6 +86,13 @@ class EyeEditActivity : AppCompatActivity() {
             hideAddendaUI()
         }
 
+        btnInsertCircle.setOnClickListener {
+            palette.addBezierCircle()
+            palette.changeSate(Palette.State.EDIT)
+            menuEdit.close(true)
+            hideAddendaUI()
+        }
+
         btnColorPicker.setOnClickListener {
             palette.changeSate(Palette.State.COLOR)
             menuEdit.close(true)
