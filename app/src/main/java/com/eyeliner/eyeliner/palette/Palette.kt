@@ -271,7 +271,7 @@ class Palette : View, GestureView {
 
     private fun createBezierCircle(): BezierCircle {
         return BezierCircle(
-                Anchor(PointF(200f, 200f), false),
+                Anchor(invertPoint(PointF(200f, 200f)), false),
                 radius,
                 ContextCompat.getColor(context, R.color.colorPoint),
                 delete.width.toFloat() , delete.height.toFloat())
