@@ -28,3 +28,6 @@ lint.xml
 
 *.hprof
 .gitignore
+
+app/build
+app/libs/
