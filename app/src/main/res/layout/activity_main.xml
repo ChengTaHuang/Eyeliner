@@ -61,6 +61,14 @@
             app:fab_size="mini" />
 
         <com.github.clans.fab.FloatingActionButton
+            android:id="@+id/btnRotate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@drawable/ic_rotate_menu"
+            app:fab_colorNormal="@color/colorPoint"
+            app:fab_size="mini" />
+
+        <com.github.clans.fab.FloatingActionButton
             android:id="@+id/btnEdit"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

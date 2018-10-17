@@ -106,6 +106,12 @@ class EyeEditActivity : AppCompatActivity() {
             showSeekBar()
         }
 
+        btnRotate.setOnClickListener {
+            palette.changeSate(Palette.State.ROTATE)
+            menuEdit.close(true)
+            hideAddendaUI()
+        }
+
         btnEdit.setOnClickListener {
             palette.changeSate(Palette.State.EDIT)
             menuEdit.close(true)

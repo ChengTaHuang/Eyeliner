@@ -8,7 +8,6 @@ import android.support.annotation.ColorInt
 import android.support.annotation.ColorRes
 import android.support.v4.content.ContextCompat
 import android.util.AttributeSet
-import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
 import com.alexvasilkov.gestures.GestureController
@@ -17,8 +16,8 @@ import com.alexvasilkov.gestures.views.interfaces.GestureView
 import com.eyeliner.eyeliner.R
 import com.eyeliner.eyeliner.palette.model.Anchor
 import com.eyeliner.eyeliner.palette.model.Bezier
-import com.eyeliner.eyeliner.palette.model.BezierArea
 import com.eyeliner.eyeliner.palette.model.BezierCircle
+import com.eyeliner.eyeliner.palette.model.BezierShape
 
 
 /**
@@ -41,6 +40,8 @@ class Palette : View, GestureView {
         object DELETE : State()
         object SAVE : State()
         object COLOR : State()
+        object ROTATE : State()
+
     }
 
     private var state: State = State.EDIT
@@ -49,6 +50,7 @@ class Palette : View, GestureView {
     private val pointsPaint: Paint = Paint()
     private val pointsBiggerPaint: Paint = Paint()
     private val linePaint: Paint = Paint()
+    private val centerPaint: Paint = Paint()
     private val defaultRadius = 5f
     private val defaultBiggerRadius = 15f
     private var pointsRadius = defaultRadius
@@ -84,23 +86,24 @@ class Palette : View, GestureView {
 
     private val bezierPath = Path()
 
-    private val bezierList = mutableListOf<Bezier>()
-
     private lateinit var delete: Bitmap
     private lateinit var colorPalette: Bitmap
-
-    private var bezierAreaList = mutableListOf<BezierArea>()
-
-    private val NONE_TOUCH_AREA = -1
-    private var touchIndex = NONE_TOUCH_AREA
+    private lateinit var whirling: Bitmap
 
     private var backgroundBitmap: Bitmap? = null
-
-    private var bezierCircleList = mutableListOf<BezierCircle>()
 
     private val bezierCirclePath = Path()
 
     private var radius = 100f
+    private val touchPointsRecord = mutableListOf<PointF>()
+    private var lastAngle = 0.0
+
+    sealed class BezierViewType{
+        data class Line(val bezier: Bezier) : BezierViewType()
+        data class Circle(val bezierCircle: BezierCircle) : BezierViewType()
+    }
+
+    private val bezierViewTypeList = mutableListOf<BezierViewType>()
 
     fun setBackgroundBitmap(bitmap: Bitmap?) {
         this.backgroundBitmap = bitmap
@@ -111,22 +114,19 @@ class Palette : View, GestureView {
     constructor(context: Context) : super(context) {
         this.setWillNotDraw(false)
         initPaint()
-        createDelete()
-        createColorPalette()
+        createAllBitmap()
     }
 
     constructor(context: Context, attrs: AttributeSet) : super(context, attrs) {
         this.setWillNotDraw(false)
         initPaint()
-        createDelete()
-        createColorPalette()
+        createAllBitmap()
     }
 
     constructor(context: Context, attrs: AttributeSet, defStyle: Int) : super(context, attrs, defStyle) {
         this.setWillNotDraw(false)
         initPaint()
-        createDelete()
-        createColorPalette()
+        createAllBitmap()
     }
 
     private fun initPaint() {
@@ -149,36 +149,27 @@ class Palette : View, GestureView {
             isAntiAlias = true
             pathEffect = DashPathEffect(floatArrayOf(dashPath, dashPath / 2), 0f)
         }
+
+        with(centerPaint){
+            strokeWidth = 5f
+            color = ContextCompat.getColor(context, pointColor)
+            style = Paint.Style.STROKE
+            isAntiAlias = true
+        }
     }
 
     fun addBezier() {
-        bezierList.add(createBezier())
-        invalidate()
-    }
-
-    fun removeBezier(bezier: Bezier) {
-        bezierList.remove(bezier)
-        changeSate(state)
+        bezierViewTypeList.add(BezierViewType.Line(createBezier()))
         invalidate()
     }
 
     fun addBezierCircle() {
-        bezierCircleList.add(createBezierCircle())
+        bezierViewTypeList.add(BezierViewType.Circle(createBezierCircle()))
         invalidate()
     }
 
     fun changeSate(state: State) {
         this.state = state
-        when (state) {
-            is State.EDIT, State.SAVE -> {
-                bezierAreaList.clear()
-            }
-
-            is State.DELETE, State.COLOR -> {
-                checkDelete()
-            }
-        }
-
         invalidate()
     }
 
@@ -227,6 +218,12 @@ class Palette : View, GestureView {
         }
     }
 
+    private fun createAllBitmap(){
+        createDelete()
+        createColorPalette()
+        createWhirling()
+    }
+
     private fun createDelete() {
         val d = ContextCompat.getDrawable(context, R.drawable.ic_delete)!!
         delete = drawableToBitmap(d)
@@ -235,6 +232,11 @@ class Palette : View, GestureView {
     private fun createColorPalette() {
         val p = ContextCompat.getDrawable(context, R.drawable.ic_color_palette)!!
         colorPalette = drawableToBitmap(p)
+    }
+
+    private fun createWhirling() {
+        val r = ContextCompat.getDrawable(context, R.drawable.ic_rotate)!!
+        whirling = drawableToBitmap(r)
     }
 
     private fun drawableToBitmap(drawable: Drawable): Bitmap {
@@ -256,11 +258,17 @@ class Palette : View, GestureView {
         val anchor4 = Anchor(invertPoint(PointF(200f, 100f)), false)
         val anchor2 = Anchor(invertPoint(PointF(120f, 200f)), false)
         val anchor3 = Anchor(invertPoint(PointF(180f, 200f)), false)
-        return Bezier(anchor, anchor2, anchor3, anchor4, ContextCompat.getColor(context, R.color.colorPoint))
+        return Bezier(anchor, anchor2, anchor3, anchor4,
+                ContextCompat.getColor(context, R.color.colorPoint),
+                delete.width.toFloat() , delete.height.toFloat())
     }
 
     private fun createBezierCircle(): BezierCircle {
-        return BezierCircle(Anchor(PointF(200f, 200f), false), radius, ContextCompat.getColor(context, R.color.colorPoint))
+        return BezierCircle(
+                Anchor(PointF(200f, 200f), false),
+                radius,
+                ContextCompat.getColor(context, R.color.colorPoint),
+                delete.width.toFloat() , delete.height.toFloat())
     }
 
     private fun invertPoint(point: PointF): PointF {
@@ -276,109 +284,134 @@ class Palette : View, GestureView {
 
         canvas.save()
         canvas.concat(_matrix)
-        backgroundBitmap?.run {
-            canvas.drawBitmap(backgroundBitmap, 0f, 0f, bitmapPaint)
-        }
 
-        bezierList.forEachIndexed { index, bezier ->
+        drawBackground(canvas)
+        drawBezier(canvas)
 
-            bezierPath.reset()
-
-            bezierPath.moveTo(bezier.start.point.x, bezier.start.point.y)
-            bezierPath.cubicTo(
-                    bezier.mid1.point.x, bezier.mid1.point.y,
-                    bezier.mid2.point.x, bezier.mid2.point.y,
-                    bezier.end.point.x, bezier.end.point.y
-            )
-            linePaint.color = bezier.color
-            canvas.drawPath(bezierPath, linePaint)
-
-        }
-
-        bezierCirclePath.reset()
-
-        bezierCircleList.forEach { circle ->
-            bezierCirclePath.reset()
-
-            bezierCirclePath.moveTo(circle.topBezier.middle.point.x, circle.topBezier.middle.point.y)
-            bezierCirclePath.cubicTo(circle.topBezier.right.point.x, circle.topBezier.right.point.y, circle.rightBezier.top.point.x, circle.rightBezier.top.point.y,
-                    circle.rightBezier.middle.point.x, circle.rightBezier.middle.point.y)
-            bezierCirclePath.cubicTo(circle.rightBezier.bottom.point.x, circle.rightBezier.bottom.point.y, circle.bottomBezier.right.point.x, circle.bottomBezier.right.point.y,
-                    circle.bottomBezier.middle.point.x, circle.bottomBezier.middle.point.y)
-            bezierCirclePath.cubicTo(circle.bottomBezier.left.point.x, circle.bottomBezier.left.point.y, circle.leftBezier.bottom.point.x, circle.leftBezier.bottom.point.y,
-                    circle.leftBezier.middle.point.x, circle.leftBezier.middle.point.y)
-            bezierCirclePath.cubicTo(circle.leftBezier.top.point.x, circle.leftBezier.top.point.y, circle.topBezier.left.point.x, circle.topBezier.left.point.y,
-                    circle.topBezier.middle.point.x, circle.topBezier.middle.point.y)
-
-            linePaint.color = circle.color
-            canvas.drawPath(bezierCirclePath, linePaint)
-
-        }
 
         when (state) {
             is State.EDIT -> {
-                bezierList.forEach { bezier ->
-                    canvas.drawCircle(bezier.start.point.x, bezier.start.point.y, pointsBiggerRadius, pointsBiggerPaint)
-                    canvas.drawCircle(bezier.mid1.point.x, bezier.mid1.point.y, pointsBiggerRadius, pointsBiggerPaint)
-                    canvas.drawCircle(bezier.mid2.point.x, bezier.mid2.point.y, pointsBiggerRadius, pointsBiggerPaint)
-                    canvas.drawCircle(bezier.end.point.x, bezier.end.point.y, pointsBiggerRadius, pointsBiggerPaint)
 
-                    pointsPaint.color = bezier.color
-                    canvas.drawCircle(bezier.start.point.x, bezier.start.point.y, pointsRadius, pointsPaint)
-                    canvas.drawCircle(bezier.mid1.point.x, bezier.mid1.point.y, pointsRadius, pointsPaint)
-                    canvas.drawCircle(bezier.mid2.point.x, bezier.mid2.point.y, pointsRadius, pointsPaint)
-                    canvas.drawCircle(bezier.end.point.x, bezier.end.point.y, pointsRadius, pointsPaint)
-                }
+                bezierViewTypeList.forEach { viewType ->
+                    when(viewType){
+                        is Palette.BezierViewType.Line -> {
+                            canvas.drawCircle(viewType.bezier.start.point.x, viewType.bezier.start.point.y, pointsBiggerRadius, pointsBiggerPaint)
+                            canvas.drawCircle(viewType.bezier.mid1.point.x, viewType.bezier.mid1.point.y, pointsBiggerRadius, pointsBiggerPaint)
+                            canvas.drawCircle(viewType.bezier.mid2.point.x, viewType.bezier.mid2.point.y, pointsBiggerRadius, pointsBiggerPaint)
+                            canvas.drawCircle(viewType.bezier.end.point.x, viewType.bezier.end.point.y, pointsBiggerRadius, pointsBiggerPaint)
 
-                bezierCircleList.forEach { circle ->
-                    canvas.drawCircle(circle.topBezier.middle.point.x, circle.topBezier.middle.point.y, pointsBiggerRadius, pointsBiggerPaint)
-                    canvas.drawCircle(circle.bottomBezier.middle.point.x, circle.bottomBezier.middle.point.y, pointsBiggerRadius, pointsBiggerPaint)
-                    canvas.drawCircle(circle.leftBezier.middle.point.x, circle.leftBezier.middle.point.y, pointsBiggerRadius, pointsBiggerPaint)
-                    canvas.drawCircle(circle.rightBezier.middle.point.x, circle.rightBezier.middle.point.y, pointsBiggerRadius, pointsBiggerPaint)
-                    canvas.drawCircle(circle.center.point.x, circle.center.point.y, pointsBiggerRadius, pointsBiggerPaint)
-                    canvas.drawCircle(circle.topBezier.middle.point.x, circle.topBezier.middle.point.y, pointsRadius, pointsPaint)
-                    canvas.drawCircle(circle.bottomBezier.middle.point.x, circle.bottomBezier.middle.point.y, pointsRadius, pointsPaint)
-                    canvas.drawCircle(circle.leftBezier.middle.point.x, circle.leftBezier.middle.point.y, pointsRadius, pointsPaint)
-                    canvas.drawCircle(circle.rightBezier.middle.point.x, circle.rightBezier.middle.point.y, pointsRadius, pointsPaint)
+                            pointsPaint.color = viewType.bezier.color
+                            canvas.drawCircle(viewType.bezier.start.point.x, viewType.bezier.start.point.y, pointsRadius, pointsPaint)
+                            canvas.drawCircle(viewType.bezier.mid1.point.x, viewType.bezier.mid1.point.y, pointsRadius, pointsPaint)
+                            canvas.drawCircle(viewType.bezier.mid2.point.x, viewType.bezier.mid2.point.y, pointsRadius, pointsPaint)
+                            canvas.drawCircle(viewType.bezier.end.point.x, viewType.bezier.end.point.y, pointsRadius, pointsPaint)
+                            canvas.drawCircle(viewType.bezier.center().point.x, viewType.bezier.center().point.y, pointsRadius, centerPaint)
+                        }
+                        is Palette.BezierViewType.Circle -> {
+                            canvas.drawCircle(viewType.bezierCircle.topBezier.middle.point.x, viewType.bezierCircle.topBezier.middle.point.y, pointsBiggerRadius, pointsBiggerPaint)
+                            canvas.drawCircle(viewType.bezierCircle.bottomBezier.middle.point.x, viewType.bezierCircle.bottomBezier.middle.point.y, pointsBiggerRadius, pointsBiggerPaint)
+                            canvas.drawCircle(viewType.bezierCircle.leftBezier.middle.point.x, viewType.bezierCircle.leftBezier.middle.point.y, pointsBiggerRadius, pointsBiggerPaint)
+                            canvas.drawCircle(viewType.bezierCircle.rightBezier.middle.point.x, viewType.bezierCircle.rightBezier.middle.point.y, pointsBiggerRadius, pointsBiggerPaint)
+                            canvas.drawCircle(viewType.bezierCircle.center.point.x, viewType.bezierCircle.center.point.y, pointsBiggerRadius, pointsBiggerPaint)
 
-                    pointsPaint.color = circle.color
-                    canvas.drawCircle(circle.center.point.x, circle.center.point.y, pointsRadius, pointsPaint)
+                            pointsPaint.color = viewType.bezierCircle.color
+                            canvas.drawCircle(viewType.bezierCircle.topBezier.middle.point.x, viewType.bezierCircle.topBezier.middle.point.y, pointsRadius, pointsPaint)
+                            canvas.drawCircle(viewType.bezierCircle.bottomBezier.middle.point.x, viewType.bezierCircle.bottomBezier.middle.point.y, pointsRadius, pointsPaint)
+                            canvas.drawCircle(viewType.bezierCircle.leftBezier.middle.point.x, viewType.bezierCircle.leftBezier.middle.point.y, pointsRadius, pointsPaint)
+                            canvas.drawCircle(viewType.bezierCircle.rightBezier.middle.point.x, viewType.bezierCircle.rightBezier.middle.point.y, pointsRadius, pointsPaint)
+                            canvas.drawCircle(viewType.bezierCircle.center.point.x, viewType.bezierCircle.center.point.y, pointsRadius, centerPaint)
+                        }
+                    }
                 }
             }
 
             is State.DELETE -> {
-                bezierAreaList.forEachIndexed { index, point ->
-                    canvas.drawBitmap(delete, point.right, point.top, bitmapPaint)
-                }
+                drawSquareAndIcon(canvas , delete)
             }
 
             is State.COLOR -> {
-                bezierAreaList.forEachIndexed { index, point ->
-                    canvas.drawBitmap(colorPalette, point.left, point.top, bitmapPaint)
-                }
+                drawSquareAndIcon(canvas , colorPalette)
+            }
+
+            is State.ROTATE -> {
+                drawSquareAndIcon(canvas , whirling)
             }
         }
 
         canvas.restore()
     }
 
-    private fun checkDelete() {
-        bezierAreaList.clear()
-        bezierList.forEach { bezier ->
-            val top = Math.min(bezier.start.point.y, Math.min(bezier.mid1.point.y, Math.min(bezier.mid2.point.y, bezier.end.point.y))) - delete.height
-            val right = Math.max(bezier.start.point.x, Math.max(bezier.mid1.point.x, Math.max(bezier.mid2.point.x, bezier.end.point.x)))
-            val left = right - delete.width
-            val bottom = top + delete.height
-            val deletePoint = BezierArea(left, top, right, bottom)
-            bezierAreaList.add(deletePoint)
+    /*
+        畫上背景圖、線條、圓形
+     */
+    private fun drawBackground(canvas : Canvas){
+        backgroundBitmap?.run {
+            canvas.drawBitmap(backgroundBitmap, 0f, 0f, bitmapPaint)
         }
-        bezierCircleList.forEach { circle ->
-            val top = circle.topMost() - delete.height
-            val right = circle.rightMost()
-            val left = right - delete.width
-            val bottom = top + delete.height
-            val deletePoint = BezierArea(left, top, right, bottom)
-            bezierAreaList.add(deletePoint)
+    }
+
+    private fun drawBezier(canvas : Canvas){
+        bezierViewTypeList.forEach { viewType ->
+            when(viewType){
+                is Palette.BezierViewType.Line -> {
+                    bezierPath.reset()
+                    bezierPath.moveTo(viewType.bezier.start.point.x, viewType.bezier.start.point.y)
+                    bezierPath.cubicTo(
+                            viewType.bezier.mid1.point.x, viewType.bezier.mid1.point.y,
+                            viewType.bezier.mid2.point.x, viewType.bezier.mid2.point.y,
+                            viewType.bezier.end.point.x, viewType.bezier.end.point.y
+                    )
+                    linePaint.color = viewType.bezier.color
+                    canvas.drawPath(bezierPath, linePaint)
+                }
+                is Palette.BezierViewType.Circle -> {
+                    bezierCirclePath.reset()
+
+                    bezierCirclePath.reset()
+
+                    bezierCirclePath.moveTo(viewType.bezierCircle.topBezier.middle.point.x, viewType.bezierCircle.topBezier.middle.point.y)
+                    bezierCirclePath.cubicTo(
+                            viewType.bezierCircle.topBezier.right.point.x, viewType.bezierCircle.topBezier.right.point.y,
+                            viewType.bezierCircle.rightBezier.top.point.x, viewType.bezierCircle.rightBezier.top.point.y,
+                            viewType.bezierCircle.rightBezier.middle.point.x, viewType.bezierCircle.rightBezier.middle.point.y)
+
+                    bezierCirclePath.cubicTo(
+                            viewType.bezierCircle.rightBezier.bottom.point.x, viewType.bezierCircle.rightBezier.bottom.point.y,
+                            viewType.bezierCircle.bottomBezier.right.point.x, viewType.bezierCircle.bottomBezier.right.point.y,
+                            viewType.bezierCircle.bottomBezier.middle.point.x, viewType.bezierCircle.bottomBezier.middle.point.y)
+
+                    bezierCirclePath.cubicTo(
+                            viewType.bezierCircle.bottomBezier.left.point.x, viewType.bezierCircle.bottomBezier.left.point.y,
+                            viewType.bezierCircle.leftBezier.bottom.point.x, viewType.bezierCircle.leftBezier.bottom.point.y,
+                            viewType.bezierCircle.leftBezier.middle.point.x, viewType.bezierCircle.leftBezier.middle.point.y)
+
+                    bezierCirclePath.cubicTo(
+                            viewType.bezierCircle.leftBezier.top.point.x, viewType.bezierCircle.leftBezier.top.point.y,
+                            viewType.bezierCircle.topBezier.left.point.x, viewType.bezierCircle.topBezier.left.point.y,
+                            viewType.bezierCircle.topBezier.middle.point.x, viewType.bezierCircle.topBezier.middle.point.y)
+
+                    linePaint.color = viewType.bezierCircle.color
+                    canvas.drawPath(bezierCirclePath, linePaint)
+                }
+            }
+        }
+    }
+
+    /*
+        畫個圖形的邊框以及對應操作圖示
+     */
+    private fun drawSquareAndIcon(canvas : Canvas , bitmap: Bitmap){
+        bezierViewTypeList.forEach { viewType ->
+            when(viewType){
+                is Palette.BezierViewType.Line -> {
+                    if(!viewType.bezier.rotate)
+                        canvas.drawBitmap(bitmap, viewType.bezier.getDrawIconPoint().x, viewType.bezier.getDrawIconPoint().y, bitmapPaint)
+                }
+                is Palette.BezierViewType.Circle -> {
+                    if(!viewType.bezierCircle.rotate)
+                        canvas.drawBitmap(bitmap, viewType.bezierCircle.getDrawIconPoint().x, viewType.bezierCircle.getDrawIconPoint().y, bitmapPaint)
+                }
+            }
         }
     }
 
@@ -389,39 +422,27 @@ class Palette : View, GestureView {
 
         when (event.action) {
             MotionEvent.ACTION_UP -> {
+                touchPointsRecord.clear()
+                lastAngle = 0.0
 
-                when (state) {
-                    is State.EDIT -> {
-                        bezierList.forEach { bezier ->
-                            bezier.start.draw = false
-                            bezier.mid1.draw = false
-                            bezier.mid2.draw = false
-                            bezier.end.draw = false
+                bezierViewTypeList.forEach { viewType ->
+                    when (viewType) {
+                        is Palette.BezierViewType.Line -> {
+                            viewType.bezier.setEnableDraw(Bezier.AnchorType.START , false)
+                            viewType.bezier.setEnableDraw(Bezier.AnchorType.MID1 , false)
+                            viewType.bezier.setEnableDraw(Bezier.AnchorType.MID2 , false)
+                            viewType.bezier.setEnableDraw(Bezier.AnchorType.END , false)
+                            viewType.bezier.setEnableDraw(Bezier.AnchorType.CENTER , false)
+                            viewType.bezier.rotate = false
                         }
-
-                        bezierCircleList.forEach { circle ->
-                            circle.topBezier.left.draw = false
-                            circle.topBezier.middle.draw = false
-                            circle.topBezier.right.draw = false
-
-                            circle.bottomBezier.left.draw = false
-                            circle.bottomBezier.middle.draw = false
-                            circle.bottomBezier.right.draw = false
-
-                            circle.leftBezier.top.draw = false
-                            circle.leftBezier.middle.draw = false
-                            circle.leftBezier.bottom.draw = false
-
-                            circle.rightBezier.top.draw = false
-                            circle.rightBezier.middle.draw = false
-                            circle.rightBezier.bottom.draw = false
-
-                            circle.center.draw = false
+                        is Palette.BezierViewType.Circle -> {
+                            viewType.bezierCircle.setEnableDraw(BezierCircle.AnchorType.TOP , false)
+                            viewType.bezierCircle.setEnableDraw(BezierCircle.AnchorType.LEFT , false)
+                            viewType.bezierCircle.setEnableDraw(BezierCircle.AnchorType.RIGHT , false)
+                            viewType.bezierCircle.setEnableDraw(BezierCircle.AnchorType.BOTTOM , false)
+                            viewType.bezierCircle.setEnableDraw(BezierCircle.AnchorType.CENTER , false)
+                            viewType.bezierCircle.rotate = false
                         }
-                    }
-
-                    is State.DELETE -> {
-                        touchIndex = NONE_TOUCH_AREA
                     }
                 }
             }
@@ -431,217 +452,210 @@ class Palette : View, GestureView {
                 when (state) {
                     is State.EDIT -> {
                         run breaking@ {
-                            bezierList.forEach { bezier ->
-                                val dis1 = getDistance(bezier.start.point, nowPoint)
-                                val dis2 = getDistance(bezier.mid1.point, nowPoint)
-                                val dis3 = getDistance(bezier.mid2.point, nowPoint)
-                                val dis4 = getDistance(bezier.end.point, nowPoint)
-                                val min = Math.min(dis1, Math.min(dis2, Math.min(dis3, dis4)))
-
-                                if (min < 50) {
-                                    when (min) {
-                                        dis1 -> {
-                                            bezier.start.draw = true
+                            bezierViewTypeList.forEach { viewType ->
+                                when (viewType) {
+                                    is Palette.BezierViewType.Line -> {
+                                        when (viewType.bezier.closeAnchor(nowPoint)) {
+                                            Bezier.AnchorType.START -> viewType.bezier.setEnableDraw(Bezier.AnchorType.START, true)
+                                            Bezier.AnchorType.MID1 -> viewType.bezier.setEnableDraw(Bezier.AnchorType.MID1, true)
+                                            Bezier.AnchorType.MID2 -> viewType.bezier.setEnableDraw(Bezier.AnchorType.MID2, true)
+                                            Bezier.AnchorType.END -> viewType.bezier.setEnableDraw(Bezier.AnchorType.END, true)
+                                            Bezier.AnchorType.CENTER -> viewType.bezier.setEnableDraw(Bezier.AnchorType.CENTER, true)
+                                            else -> {
+                                            }
+                                        }
+                                        when (viewType.bezier.getDraw()) {
+                                            Bezier.AnchorType.START -> viewType.bezier.moveStart(nowPoint)
+                                            Bezier.AnchorType.MID1 -> viewType.bezier.moveMid1(nowPoint)
+                                            Bezier.AnchorType.MID2 -> viewType.bezier.moveMid2(nowPoint)
+                                            Bezier.AnchorType.END -> viewType.bezier.moveEnd(nowPoint)
+                                            Bezier.AnchorType.CENTER -> viewType.bezier.moveCenter(nowPoint)
+                                            else -> {
+                                            }
                                         }
 
-                                        dis2 -> {
-                                            bezier.mid1.draw = true
-                                        }
-
-                                        dis3 -> {
-                                            bezier.mid2.draw = true
-                                        }
-
-                                        dis4 -> {
-                                            bezier.end.draw = true
-                                        }
-
-                                        else -> {
-                                        }
-                                    }
-                                }
-
-                                if (bezier.start.draw) {
-                                    bezier.start.point.x = nowPoint.x
-                                    bezier.start.point.y = nowPoint.y
-                                }
-
-                                if (bezier.mid1.draw) {
-                                    bezier.mid1.point.x = nowPoint.x
-                                    bezier.mid1.point.y = nowPoint.y
-                                }
-
-                                if (bezier.mid2.draw) {
-                                    bezier.mid2.point.x = nowPoint.x
-                                    bezier.mid2.point.y = nowPoint.y
-                                }
-
-                                if (bezier.end.draw) {
-                                    bezier.end.point.x = nowPoint.x
-                                    bezier.end.point.y = nowPoint.y
-                                }
-
-                                if (min < 50) return@breaking
-                            }
-
-                            bezierCircleList.forEach { circle ->
-
-                                val dis1 = getDistance(circle.topBezier.middle.point, nowPoint)
-
-                                val dis2 = getDistance(circle.bottomBezier.middle.point, nowPoint)
-
-                                val dis3 = getDistance(circle.leftBezier.middle.point, nowPoint)
-
-                                val dis4 = getDistance(circle.rightBezier.middle.point, nowPoint)
-
-                                val dis5 = getDistance(circle.center.point, nowPoint)
-
-                                val min = Math.min(dis1 , Math.min(dis2 , Math.min(dis3 , Math.min(dis4 , dis5))))
-
-                                if (min < 50) {
-                                    when (min) {
-                                        dis1 -> {
-                                            circle.topBezier.middle.draw = true
-                                        }
-
-                                        dis2 -> {
-                                            circle.bottomBezier.middle.draw = true
-                                        }
-
-                                        dis3 -> {
-                                            circle.leftBezier.middle.draw = true
-                                        }
-
-                                        dis4 -> {
-                                            circle.rightBezier.middle.draw = true
-                                        }
-
-                                        dis5 -> {
-                                            circle.center.draw = true
-                                        }
-
-                                        else -> {
+                                        when (viewType.bezier.closeAnchor(nowPoint)) {
+                                            Bezier.AnchorType.START, Bezier.AnchorType.MID1, Bezier.AnchorType.MID2, Bezier.AnchorType.END, Bezier.AnchorType.CENTER -> {
+                                                return@breaking
+                                            }
                                         }
                                     }
-                                }
+                                    is Palette.BezierViewType.Circle -> {
+                                        when (viewType.bezierCircle.closeAnchor(nowPoint)) {
+                                            BezierCircle.AnchorType.LEFT -> viewType.bezierCircle.setEnableDraw(BezierCircle.AnchorType.LEFT , true)
+                                            BezierCircle.AnchorType.RIGHT -> viewType.bezierCircle.setEnableDraw(BezierCircle.AnchorType.RIGHT , true)
+                                            BezierCircle.AnchorType.TOP -> viewType.bezierCircle.setEnableDraw(BezierCircle.AnchorType.TOP , true)
+                                            BezierCircle.AnchorType.BOTTOM -> viewType.bezierCircle.setEnableDraw(BezierCircle.AnchorType.BOTTOM , true)
+                                            BezierCircle.AnchorType.CENTER -> viewType.bezierCircle.setEnableDraw(BezierCircle.AnchorType.CENTER , true)
+                                            else -> {}
+                                        }
 
-                                if (circle.topBezier.middle.draw) {
-                                    circle.moveTop(nowPoint)
-                                }
+                                        when (viewType.bezierCircle.getDraw()) {
+                                            BezierCircle.AnchorType.LEFT -> viewType.bezierCircle.moveLeft(nowPoint)
+                                            BezierCircle.AnchorType.RIGHT -> viewType.bezierCircle.moveRight(nowPoint)
+                                            BezierCircle.AnchorType.TOP -> viewType.bezierCircle.moveTop(nowPoint)
+                                            BezierCircle.AnchorType.BOTTOM -> viewType.bezierCircle.moveBottom(nowPoint)
+                                            BezierCircle.AnchorType.CENTER -> viewType.bezierCircle.moveCenter(nowPoint)
+                                            else -> {}
+                                        }
 
-                                if (circle.bottomBezier.middle.draw) {
-                                    circle.moveBottom(nowPoint)
-                                }
-
-                                if (circle.leftBezier.middle.draw) {
-                                    circle.moveLeft(nowPoint)
-                                }
-
-                                if (circle.rightBezier.middle.draw) {
-                                    circle.moveRight(nowPoint)
-                                }
-
-                                if (circle.center.draw) {
-                                    circle.moveCenter(nowPoint)
+                                        when (viewType.bezierCircle.closeAnchor(nowPoint)) {
+                                            BezierCircle.AnchorType.LEFT , BezierCircle.AnchorType.RIGHT , BezierCircle.AnchorType.TOP , BezierCircle.AnchorType.BOTTOM , BezierCircle.AnchorType.CENTER -> {
+                                                return@breaking
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
 
                     is State.DELETE -> {
-                        touchIndex = findTouchedBezierPoint(nowPoint)
-                        if (touchIndex != NONE_TOUCH_AREA) {
-                            bezierAreaList.removeAt(touchIndex)
-                            if (bezierList.size - 1 >= touchIndex) {
-                                bezierList.removeAt(touchIndex)
-                            } else {
-                                val baseIndex = bezierList.size
-                                bezierCircleList.removeAt(touchIndex - baseIndex)
+                        run breaking@ {
+                            bezierViewTypeList.forEach { viewType ->
+                                when (viewType) {
+                                    is Palette.BezierViewType.Line -> {
+                                        if (viewType.bezier.isTouchEditIcon(nowPoint)) {
+                                            bezierViewTypeList.remove(viewType)
+                                            isMyControl = true
+                                            return@breaking
+                                        }
+                                    }
+                                    is Palette.BezierViewType.Circle -> {
+                                        if (viewType.bezierCircle.isTouchEditIcon(nowPoint)) {
+                                            bezierViewTypeList.remove(viewType)
+                                            isMyControl = true
+                                            return@breaking
+                                        }
+                                    }
+                                }
                             }
-                            isMyControl = true
-                            invalidate()
                         }
                     }
 
                     is State.COLOR -> {
-                        touchIndex = findTouchedBezierPoint(nowPoint)
-                        if (touchIndex != NONE_TOUCH_AREA && currentPaintColor != null) {
-                            if (bezierList.size - 1 >= touchIndex) {
-                                bezierList[touchIndex].color = currentPaintColor!!
-                            } else {
-                                val baseIndex = bezierList.size
-                                bezierCircleList[touchIndex - baseIndex].color = currentPaintColor!!
+                        run breaking@ {
+                            bezierViewTypeList.forEach { viewType ->
+                                when (viewType) {
+                                    is Palette.BezierViewType.Line -> {
+                                        if (viewType.bezier.isTouchEditIcon(nowPoint)) {
+                                            viewType.bezier.color = currentPaintColor!!
+                                            isMyControl = true
+                                            return@breaking
+                                        }
+                                    }
+                                    is Palette.BezierViewType.Circle -> {
+                                        if (viewType.bezierCircle.isTouchEditIcon(nowPoint)) {
+                                            viewType.bezierCircle.color = currentPaintColor!!
+                                            isMyControl = true
+                                            return@breaking
+                                        }
+                                    }
+                                }
                             }
-                            isMyControl = true
-                            invalidate()
+                        }
+
+                    }
+
+                    is State.ROTATE -> {
+                        run breaking@ {
+                            bezierViewTypeList.forEach { viewType ->
+                                when (viewType) {
+                                    is Palette.BezierViewType.Line -> {
+                                        if (viewType.bezier.isTouchEditIcon(nowPoint)) {
+                                            touchPointsRecord.add(nowPoint)
+                                            viewType.bezier.rotate = true
+                                            isMyControl = true
+                                            return@breaking
+                                        }
+                                    }
+                                    is Palette.BezierViewType.Circle -> {
+                                        if (viewType.bezierCircle.isTouchEditIcon(nowPoint)) {
+                                            touchPointsRecord.add(nowPoint)
+                                            viewType.bezierCircle.rotate = true
+                                            isMyControl = true
+                                            return@breaking
+                                        }
+
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
 
             MotionEvent.ACTION_MOVE -> {
-                if (state == State.EDIT) {
-                    run breaking@ {
-                        bezierList.forEach { bezier ->
-                            if (bezier.start.draw) {
-                                bezier.start.point.x = nowPoint.x
-                                bezier.start.point.y = nowPoint.y
-                            }
+                when (state) {
+                    is State.EDIT -> {
+                        run breaking@ {
+                            bezierViewTypeList.forEach { viewType ->
+                                when (viewType) {
+                                    is Palette.BezierViewType.Line -> {
+                                        when (viewType.bezier.getDraw()) {
+                                            Bezier.AnchorType.START -> viewType.bezier.moveStart(nowPoint)
+                                            Bezier.AnchorType.MID1 -> viewType.bezier.moveMid1(nowPoint)
+                                            Bezier.AnchorType.MID2 -> viewType.bezier.moveMid2(nowPoint)
+                                            Bezier.AnchorType.END -> viewType.bezier.moveEnd(nowPoint)
+                                            Bezier.AnchorType.CENTER -> viewType.bezier.moveCenter(nowPoint)
+                                            else -> {
+                                            }
+                                        }
 
-                            if (bezier.mid1.draw) {
-                                bezier.mid1.point.x = nowPoint.x
-                                bezier.mid1.point.y = nowPoint.y
-                            }
+                                        viewType.bezier.getDraw()?.let {
+                                            isMyControl = true
+                                            return@breaking
+                                        }
+                                    }
+                                    is Palette.BezierViewType.Circle -> {
+                                        when (viewType.bezierCircle.getDraw()) {
+                                            BezierCircle.AnchorType.TOP -> viewType.bezierCircle.moveTop(nowPoint)
+                                            BezierCircle.AnchorType.BOTTOM -> viewType.bezierCircle.moveBottom(nowPoint)
+                                            BezierCircle.AnchorType.LEFT -> viewType.bezierCircle.moveLeft(nowPoint)
+                                            BezierCircle.AnchorType.RIGHT -> viewType.bezierCircle.moveRight(nowPoint)
+                                            BezierCircle.AnchorType.CENTER -> viewType.bezierCircle.moveCenter(nowPoint)
+                                            else -> {
+                                            }
+                                        }
 
-                            if (bezier.mid2.draw) {
-                                bezier.mid2.point.x = nowPoint.x
-                                bezier.mid2.point.y = nowPoint.y
-                            }
-
-                            if (bezier.end.draw) {
-                                bezier.end.point.x = nowPoint.x
-                                bezier.end.point.y = nowPoint.y
-                            }
-
-                            if (bezier.start.draw || bezier.mid1.draw || bezier.mid2.draw || bezier.end.draw) {
-                                isMyControl = true
-                                return@breaking
+                                        viewType.bezierCircle.getDraw()?.let {
+                                            isMyControl = true
+                                            return@breaking
+                                        }
+                                    }
+                                }
                             }
                         }
+                    }
 
-                        bezierCircleList.forEach { circle ->
-
-                            if (circle.topBezier.middle.draw) {
-                                circle.moveTop(nowPoint)
-                            }
-
-                            if (circle.bottomBezier.middle.draw) {
-                                circle.moveBottom(nowPoint)
-                            }
-
-                            if (circle.leftBezier.middle.draw) {
-                                circle.moveLeft(nowPoint)
-                            }
-
-                            if (circle.rightBezier.middle.draw) {
-                                circle.moveRight(nowPoint)
-                            }
-
-                            if (circle.center.draw) {
-                                circle.moveCenter(nowPoint)
-                            }
-
-                            if (circle.topBezier.left.draw || circle.topBezier.middle.draw || circle.topBezier.right.draw ||
-                                    circle.bottomBezier.left.draw || circle.bottomBezier.middle.draw || circle.bottomBezier.right.draw ||
-                                    circle.leftBezier.top.draw || circle.leftBezier.middle.draw || circle.leftBezier.bottom.draw ||
-                                    circle.rightBezier.top.draw || circle.rightBezier.middle.draw || circle.rightBezier.bottom.draw ||
-                                    circle.center.draw) {
-                                isMyControl = true
-                                return@breaking
+                    is State.ROTATE -> {
+                        run breaking@ {
+                            bezierViewTypeList.forEach { viewType ->
+                                when (viewType) {
+                                    is Palette.BezierViewType.Line -> {
+                                        if (viewType.bezier.rotate) {
+                                            touchPointsRecord.add(nowPoint)
+                                            val matrix = calcRotate(viewType.bezier)
+                                            viewType.bezier.rotate(matrix)
+                                            isMyControl = true
+                                            return@breaking
+                                        }
+                                    }
+                                    is Palette.BezierViewType.Circle -> {
+                                        if (viewType.bezierCircle.rotate) {
+                                            touchPointsRecord.add(nowPoint)
+                                            val matrix = calcRotate(viewType.bezierCircle)
+                                            viewType.bezierCircle.rotate(matrix)
+                                            isMyControl = true
+                                            return@breaking
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
                 }
+
             }
         }
         if (!isMyControl)
@@ -651,51 +665,22 @@ class Palette : View, GestureView {
         return true
     }
 
-    private fun getDistance(last: PointF, now: PointF): Double {
-
-        return Math.sqrt(
-                Math.pow((last.x - now.x).toDouble(), 2.0) +
-                        Math.pow((last.y - now.y).toDouble(), 2.0)
-        )
-    }
-
-    private val gestureDetector by lazy {
-        GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
-            override fun onLongPress(event: MotionEvent) {
-                val nowPoint = PointF(event.getX(0), event.getY(0))
-
-                val index = findTouchedBezierPoint(nowPoint)
-
-                if (index != NONE_TOUCH_AREA) {
-                    bezierAreaList.removeAt(index)
-                    bezierList.removeAt(index)
-                    touchIndex = NONE_TOUCH_AREA
-                    invalidate()
-                }
-
-            }
-        })
-    }
-
-    private fun findTouchedBezierPoint(nowPoint: PointF): Int {
-
-        var index1 = NONE_TOUCH_AREA
-        bezierAreaList.forEachIndexed { index, deletePoint ->
-            val dis1 = getDistance(PointF(deletePoint.left, deletePoint.top), nowPoint)
-            val dis2 = getDistance(PointF(deletePoint.left, deletePoint.down), nowPoint)
-            val dis3 = getDistance(PointF(deletePoint.right, deletePoint.top), nowPoint)
-            val dis4 = getDistance(PointF(deletePoint.left, deletePoint.down), nowPoint)
-            val min = Math.min(dis1, Math.min(dis2, Math.min(dis3, dis4)))
-            if (min < 50) {
-                index1 = index
-            }
-        }
-        return index1
+    private fun calcRotate(shape: BezierShape) : Matrix {
+        val now = touchPointsRecord[touchPointsRecord.size -1]
+        val angle = (Math.toDegrees(Math.atan2((shape.center().point.y - now.y).toDouble(), (shape.center().point.x - now.x).toDouble())))
+        if(lastAngle == 0.0) lastAngle = angle
+        val matrixAngle = Matrix()
+        matrixAngle.postRotate((angle.toFloat() - lastAngle).toFloat(), shape.center().point.x, shape.center().point.y)
+        lastAngle = angle
+        return matrixAngle
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        //onTouchEvent(ev)
-        //gestureDetector.onTouchEvent(ev)
-        return super.dispatchTouchEvent(ev)
+        return try {
+            super.dispatchTouchEvent(ev)
+        } catch (e: Exception) {
+            false
+        }
+
     }
 }
