@@ -8,8 +8,10 @@ import android.support.annotation.ColorInt
 import android.support.annotation.ColorRes
 import android.support.v4.content.ContextCompat
 import android.util.AttributeSet
+import android.util.Log
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import com.alexvasilkov.gestures.GestureController
 import com.alexvasilkov.gestures.Settings
 import com.alexvasilkov.gestures.views.interfaces.GestureView
@@ -18,6 +20,7 @@ import com.eyeliner.eyeliner.palette.model.Anchor
 import com.eyeliner.eyeliner.palette.model.Bezier
 import com.eyeliner.eyeliner.palette.model.BezierCircle
 import com.eyeliner.eyeliner.palette.model.BezierShape
+import kotlinx.android.synthetic.main.activity_main.*
 
 
 /**
@@ -91,7 +94,6 @@ class Palette : View, GestureView {
     private lateinit var whirling: Bitmap
 
     private var backgroundBitmap: Bitmap? = null
-
     private val bezierCirclePath = Path()
 
     private var radius = 100f
@@ -110,6 +112,8 @@ class Palette : View, GestureView {
         settingController()
         invalidate()
     }
+
+    fun getBackgroundBitmap() = this.backgroundBitmap
 
     constructor(context: Context) : super(context) {
         this.setWillNotDraw(false)
@@ -175,6 +179,8 @@ class Palette : View, GestureView {
 
     fun resetScale() {
         _matrix = Matrix()
+        controller.resetState()
+        invalidate()
     }
 
     private fun settingController() {

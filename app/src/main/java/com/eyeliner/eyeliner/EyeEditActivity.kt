@@ -20,6 +20,9 @@ import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.*
 import android.app.AlertDialog
+import android.graphics.Canvas
+import android.util.DisplayMetrics
+import android.util.Log
 import android.view.View
 import android.widget.SeekBar
 import com.skydoves.colorpickerview.listeners.ColorEnvelopeListener
@@ -130,7 +133,6 @@ class EyeEditActivity : AppCompatActivity() {
         menuPreview.setOnMenuButtonClickListener {
             if (!menuPreview.isOpened) {
                 palette.changeSate(Palette.State.SAVE)
-                palette.resetScale()
                 changeMenu(Menu.PREVIEW)
                 hideAddendaUI()
             }
@@ -140,9 +142,11 @@ class EyeEditActivity : AppCompatActivity() {
         btnSave.setOnClickListener {
             palette.changeSate(Palette.State.SAVE)
             palette.resetScale()
-            palette.isDrawingCacheEnabled = true
-            val bitmapCache = palette.drawingCache
-            saveTempBitmap(bitmapCache)
+
+            val bitmap = getPaletteBitmap()
+
+            saveTempBitmap(bitmap)
+
             menuPreview.close(true)
             hideAddendaUI()
         }
@@ -172,6 +176,20 @@ class EyeEditActivity : AppCompatActivity() {
             }
 
         })
+    }
+
+    private fun getPaletteBitmap() : Bitmap{
+        val bitmap = Bitmap.createBitmap(palette.getBackgroundBitmap()!!.width, palette.getBackgroundBitmap()!!.height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+
+        val width = palette.measuredWidth
+        val height = palette.measuredHeight
+
+        palette.layout(0, 0, palette.getBackgroundBitmap()!!.width, palette.getBackgroundBitmap()!!.height)
+        palette.draw(canvas)
+
+        palette.layout(0, 0, width, height)
+        return bitmap
     }
 
     private fun hideAddendaUI(){
@@ -254,6 +272,7 @@ class EyeEditActivity : AppCompatActivity() {
 
     private fun saveTempBitmap(bitmap: Bitmap) {
         if (isExternalStorageWritable()) {
+            Log.i("check" , "${bitmap.width} , ${bitmap.height}")
             saveImage(bitmap)
         } else {
         }
